@@ -1,45 +1,42 @@
 package com.github.doyoo.stringhelper.toolWindow
 
-import com.intellij.openapi.components.service
-import com.intellij.openapi.diagnostic.thisLogger
+import com.github.doyoo.stringhelper.utils.StringTransformer
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.content.ContentFactory
-import com.github.doyoo.stringhelper.MyBundle
-import com.github.doyoo.stringhelper.services.MyProjectService
+import java.awt.BorderLayout
+import java.awt.FlowLayout
 import javax.swing.JButton
+import javax.swing.JPanel
 
 
 class MyToolWindowFactory : ToolWindowFactory {
 
-    init {
-        thisLogger().warn("Don't forget to remove all non-needed sample code files with their corresponding registration entries in `plugin.xml`.")
-    }
-
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val myToolWindow = MyToolWindow(toolWindow)
-        val content = ContentFactory.getInstance().createContent(myToolWindow.getContent(), null, false)
+        val textArea = JBTextArea(10, 40).apply { lineWrap = true }
+        val panel = JPanel(BorderLayout())
+        val btnPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+
+        val actions = mapOf(
+            "Unicode" to StringTransformer::transformUnicode,
+            "Base64" to StringTransformer::transformBase64,
+            "URL" to StringTransformer::transformUrl
+        )
+
+        actions.forEach { (label, func) ->
+            btnPanel.add(JButton(label).apply {
+                addActionListener { textArea.text = func(textArea.text) }
+            })
+        }
+
+        panel.add(JBScrollPane(textArea), BorderLayout.CENTER)
+        panel.add(btnPanel, BorderLayout.SOUTH)
+
+        val content = ContentFactory.getInstance().createContent(panel, "", false)
         toolWindow.contentManager.addContent(content)
     }
 
-    override fun shouldBeAvailable(project: Project) = true
-
-    class MyToolWindow(toolWindow: ToolWindow) {
-
-        private val service = toolWindow.project.service<MyProjectService>()
-
-        fun getContent() = JBPanel<JBPanel<*>>().apply {
-            val label = JBLabel(MyBundle.message("randomLabel", "?"))
-
-            add(label)
-            add(JButton(MyBundle.message("shuffle")).apply {
-                addActionListener {
-                    label.text = MyBundle.message("randomLabel", service.getRandomNumber())
-                }
-            })
-        }
-    }
 }

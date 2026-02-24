@@ -3,13 +3,29 @@
     <id>com.github.doyoo.stringhelper</id>
     <name>string-helper</name>
     <vendor>doyoo</vendor>
-
     <depends>com.intellij.modules.platform</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
+    <actions>
+        <group id="cn.aaron.stringtools.Group" text="String Helper" popup="true">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+
+            <action id="cn.aaron.stringtools.Unicode" class="com.github.doyoo.stringhelper.actions.UnicodeSmartAction" text="Unicode">
+                <keyboard-shortcut first-keystroke="alt U" keymap="$default"/>
+            </action>
+
+            <action id="cn.aaron.stringtools.Base64" class="com.github.doyoo.stringhelper.actions.Base64SmartAction" text="Base64">
+                <keyboard-shortcut first-keystroke="alt B" keymap="$default"/>
+            </action>
+
+            <action id="cn.aaron.stringtools.Url" class="com.github.doyoo.stringhelper.actions.UrlSmartAction" text="URL">
+                <keyboard-shortcut first-keystroke="alt L" keymap="$default"/>
+            </action>
+        </group>
+    </actions>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.doyoo.stringhelper.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.doyoo.stringhelper.startup.MyProjectActivity" />
+        <toolWindow id="String Helper"
+                    anchor="right"
+                    factoryClass="com.github.doyoo.stringhelper.toolWindow.MyToolWindowFactory"/>
     </extensions>
 </idea-plugin>
