@@ -12,7 +12,6 @@ import java.awt.FlowLayout
 import javax.swing.JButton
 import javax.swing.JPanel
 
-
 class MyToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {

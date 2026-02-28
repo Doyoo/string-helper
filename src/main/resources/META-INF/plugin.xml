@@ -6,18 +6,21 @@
     <depends>com.intellij.modules.platform</depends>
 
     <actions>
-        <group id="cn.aaron.stringtools.Group" text="String Helper" popup="true">
+        <group id="cn.aaron.stringtools.Group" text="String Helper" icon="/icons/pluginIcon.svg" popup="true">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
 
-            <action id="cn.aaron.stringtools.Unicode" class="com.github.doyoo.stringhelper.actions.UnicodeSmartAction" text="Unicode">
+            <action id="cn.aaron.stringtools.Unicode" class="com.github.doyoo.stringhelper.actions.UnicodeSmartAction"
+                    text="Unicode">
                 <keyboard-shortcut first-keystroke="alt U" keymap="$default"/>
             </action>
 
-            <action id="cn.aaron.stringtools.Base64" class="com.github.doyoo.stringhelper.actions.Base64SmartAction" text="Base64">
+            <action id="cn.aaron.stringtools.Base64" class="com.github.doyoo.stringhelper.actions.Base64SmartAction"
+                    text="Base64">
                 <keyboard-shortcut first-keystroke="alt B" keymap="$default"/>
             </action>
 
-            <action id="cn.aaron.stringtools.Url" class="com.github.doyoo.stringhelper.actions.UrlSmartAction" text="URL">
+            <action id="cn.aaron.stringtools.Url" class="com.github.doyoo.stringhelper.actions.UrlSmartAction"
+                    text="URL">
                 <keyboard-shortcut first-keystroke="alt L" keymap="$default"/>
             </action>
         </group>
@@ -26,6 +29,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="String Helper"
                     anchor="right"
+                    icon="/icons/pluginIcon.svg"
                     factoryClass="com.github.doyoo.stringhelper.toolWindow.MyToolWindowFactory"/>
     </extensions>
 </idea-plugin>

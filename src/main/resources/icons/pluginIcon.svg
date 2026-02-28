@@ -1,0 +1,23 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 左右代码符号 -->
+    <path d="M3.5 3.5L1.5 8L3.5 12.5"
+          stroke="#666666"
+          stroke-width="1.6"
+          stroke-opacity="1"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>
+
+    <path d="M12.5 3.5L14.5 8L12.5 12.5"
+          stroke="#666666"
+          stroke-width="1.6"
+          stroke-opacity="1"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>
+
+    <!-- 中间变换线 -->
+    <path d="M5.5 7C7 6 9 10 10.5 9"
+          stroke="#666666"
+          stroke-width="1.6"
+          stroke-opacity="1"
+          stroke-linecap="round"/>
+</svg>
