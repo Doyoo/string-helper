@@ -49,5 +49,42 @@ class StringTransformer {
             }
         }
 
+        fun transformMultipart(input: String): String {
+            val fields = mutableMapOf<String, String>()
+            val lines = input.lines()
+
+            val boundary = lines.firstOrNull { it.startsWith("--") }?.trim() ?: return ""
+            val parts = input.split(boundary)
+
+            for (segment in parts) {
+                val trimmed = segment.trim()
+                if (trimmed.isEmpty() || trimmed == "--") continue
+
+                // 尽量处理 header/body 分隔，无论是 \r\n\r\n 还是 \n\n
+                val headerBodySepR = trimmed.indexOf("\r\n\r\n")
+                val headerBodySepN = trimmed.indexOf("\n\n")
+                val sep = when {
+                    headerBodySepR >= 0 -> headerBodySepR
+                    headerBodySepN >= 0 -> headerBodySepN
+                    else -> continue
+                }
+
+                // 检查 sep + 分隔长度 是否在范围内
+                val bodyStart = if (headerBodySepR >= 0) sep + 4 else sep + 2
+                if (bodyStart >= trimmed.length) continue
+
+                val headers = trimmed.substring(0, sep)
+                val body = trimmed.substring(bodyStart).trim()
+
+                val keyMatch = Regex("name=\"([^\"]+)\"").find(headers)
+                val key = keyMatch?.groupValues?.get(1) ?: continue
+
+                fields[key] = body
+            }
+
+            return fields.entries.joinToString("&") { (k, v) ->
+                URLEncoder.encode(k, Charsets.UTF_8) + "=" + URLEncoder.encode(v, Charsets.UTF_8)
+            }
+        }
     }
 }

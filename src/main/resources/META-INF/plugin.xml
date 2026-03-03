@@ -1,12 +1,27 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.doyoo.stringhelper</id>
-    <name>string-helper</name>
-    <vendor>doyoo</vendor>
+    <name>String-Helper</name>
+    <vendor email="doyoolooyu@gmail.com" url="https://github.com/Doyoo/string-helper">Aaron</vendor>
     <depends>com.intellij.modules.platform</depends>
+    <description>
+    <![CDATA[
+        <h3>String Helper</h3>
+        A small utility plugin that provides quick string transformations like Unicode, Base64,
+        URL encoding/decoding and multipart-boundary conversion right inside IntelliJ IDEA.
+        Supported transformations:
+        <ul>
+            <li>Unicode encoding/decoding</li>
+            <li>Base64 conversion</li>
+            <li>URL encode/decode</li>
+            <li>Multipart to URL param converter</li>
+        </ul>
+        This plugin adds a dedicated tool window for easy access.
+    ]]>
+    </description>
 
     <actions>
-        <group id="cn.aaron.stringtools.Group" text="String Helper" icon="/icons/pluginIcon.svg" popup="true">
+        <group id="cn.aaron.stringtools.Group" icon="/icons/pluginIcon.svg" popup="true">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
 
             <action id="cn.aaron.stringtools.Unicode" class="com.github.doyoo.stringhelper.actions.UnicodeSmartAction"
@@ -23,6 +38,11 @@
                     text="URL">
                 <keyboard-shortcut first-keystroke="alt L" keymap="$default"/>
             </action>
+
+            <action id="cn.aaron.stringtools.Multipart" class="com.github.doyoo.stringhelper.actions.MultipartAction"
+                    text="Multipart">
+                <keyboard-shortcut first-keystroke="alt M" keymap="$default"/>
+            </action>
         </group>
     </actions>
 
@@ -30,6 +50,14 @@
         <toolWindow id="String Helper"
                     anchor="right"
                     icon="/icons/pluginIcon.svg"
-                    factoryClass="com.github.doyoo.stringhelper.toolWindow.MyToolWindowFactory"/>
+                    factoryClass="com.github.doyoo.stringhelper.toolWindow.MyToolWindowFactory"
+                    secondary="false"
+                    doNotActivateOnStart="true"/>
     </extensions>
+
+    <change-notes>
+        <![CDATA[
+            Initial release of String Helper plugin.
+        ]]>
+    </change-notes>
 </idea-plugin>

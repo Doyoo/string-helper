@@ -32,3 +32,4 @@ abstract class SmartConvertActions(private val transform: (String) -> String) : 
 class UnicodeSmartAction : SmartConvertActions({ StringTransformer.transformUnicode(it) })
 class Base64SmartAction : SmartConvertActions({ StringTransformer.transformBase64(it) })
 class UrlSmartAction : SmartConvertActions({ StringTransformer.transformUrl(it) })
+class MultipartAction : SmartConvertActions({ StringTransformer.transformMultipart(it) })
