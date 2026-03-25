@@ -18,11 +18,18 @@
 - [ ] Configure the [CODECOV_TOKEN](https://docs.codecov.com/docs/quick-start) secret for automated test coverage reports on PRs
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+<h3>String Helper</h3>
+<p>A small utility plugin that provides quick string transformations like Unicode, Base64,
+URL encoding/decoding and multipart-boundary conversion right inside IntelliJ IDEA.</p>
 
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
+<ul>
+    <li>Unicode encoding/decoding</li>
+    <li>Base64 conversion</li>
+    <li>URL encode/decode</li>
+    <li>Multipart to URL param converter</li>
+</ul>
 
-To keep everything working, do not remove `<!-- ... -->` sections. 
+<p>This plugin adds a dedicated tool window for easy access.</p>
 <!-- Plugin description end -->
 
 ## Installation

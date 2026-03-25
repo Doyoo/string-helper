@@ -21,7 +21,7 @@
     </description>
 
     <actions>
-        <group id="cn.aaron.stringtools.Group" icon="/icons/pluginIcon.svg" popup="true">
+        <group id="cn.aaron.stringtools.Group" text="String Helper" icon="/icons/pluginIcon.svg" popup="true">
             <add-to-group group-id="EditorPopupMenu" anchor="first"/>
 
             <action id="cn.aaron.stringtools.Unicode" class="com.github.doyoo.stringhelper.actions.UnicodeSmartAction"
