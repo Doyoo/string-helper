@@ -33,3 +33,4 @@ class UnicodeSmartAction : SmartConvertActions({ StringTransformer.transformUnic
 class Base64SmartAction : SmartConvertActions({ StringTransformer.transformBase64(it) })
 class UrlSmartAction : SmartConvertActions({ StringTransformer.transformUrl(it) })
 class MultipartAction : SmartConvertActions({ StringTransformer.transformMultipart(it) })
+class transformJson : SmartConvertActions({ StringTransformer.transformJson(it) })

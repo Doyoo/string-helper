@@ -1,5 +1,8 @@
 package com.github.doyoo.stringhelper.utils
 
+import com.github.doyoo.stringhelper.bundle.MyPluginBundle
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonParser
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Base64
@@ -12,6 +15,18 @@ import java.util.regex.Pattern
 class StringTransformer {
 
     companion object {
+        fun smartTransform(input: String): String {
+            val trimmed = input.trim()
+            if (trimmed.isEmpty()) return ""
+
+            return when {
+                isProbablyJson(trimmed) -> transformJson(trimmed)
+                trimmed.contains("\\u") -> transformUnicode(trimmed)
+                trimmed.contains("%") -> transformUrl(trimmed)
+                trimmed.startsWith("--") -> transformMultipart(trimmed)
+                else -> tryBase64(trimmed)
+            }
+        }
 
         fun transformUnicode(input: String): String {
             return if (input.contains("\\u")) {
@@ -85,6 +100,53 @@ class StringTransformer {
             return fields.entries.joinToString("&") { (k, v) ->
                 URLEncoder.encode(k, Charsets.UTF_8) + "=" + URLEncoder.encode(v, Charsets.UTF_8)
             }
+        }
+
+        fun transformJson(input: String): String {
+            val trimmed = input.trim()
+            if (trimmed.isEmpty()) return ""
+
+            // --- 核心逻辑：处理转义字符 ---
+            // 如果字符串包含 \" 且以 { 或 [ 开头（或被引号包裹），先进行反转义
+            var processed = trimmed
+            if (processed.contains("\\\"")) {
+                processed = processed.replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                // 如果反转义后首尾有多余引号，剥离它们
+                if (processed.startsWith("\"") && processed.endsWith("\"")) {
+                    processed = processed.substring(1, processed.length - 1)
+                }
+            }
+
+            return try {
+                val jsonElement = JsonParser.parseString(processed)
+                val gsonPretty = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
+                val gsonCompact = GsonBuilder().disableHtmlEscaping().create()
+
+                // 如果原始输入包含换行符，则执行压缩，否则执行美化
+                if (trimmed.contains("\n")) {
+                    gsonCompact.toJson(jsonElement)
+                } else {
+                    gsonPretty.toJson(jsonElement)
+                }
+            } catch (e: Exception) {
+                MyPluginBundle.message("msg.json.error", e.localizedMessage)
+            }
+        }
+
+        private fun isProbablyJson(input: String): Boolean {
+            val s = input.replace("\\\"", "\"")
+            return (s.startsWith("{") && s.endsWith("}")) ||
+                    (s.startsWith("[") && s.endsWith("]")) ||
+                    (s.startsWith("\"") && s.endsWith("\"") && s.contains(":"))
+        }
+
+        private fun tryBase64(input: String): String = try {
+            val decoded = Base64.getDecoder().decode(input)
+            String(decoded, Charsets.UTF_8)
+        } catch (e: Exception) {
+            // 如果不是 Base64，执行编码
+            Base64.getEncoder().encodeToString(input.toByteArray())
         }
     }
 }
