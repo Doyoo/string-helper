@@ -50,7 +50,7 @@ class StringTransformer {
             return try {
                 val decoded = Base64.getDecoder().decode(input.trim())
                 String(decoded, Charsets.UTF_8)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // 否则执行加密
                 Base64.getEncoder().encodeToString(input.toByteArray(Charsets.UTF_8))
             }
@@ -143,7 +143,7 @@ class StringTransformer {
         private fun tryBase64(input: String): String = try {
             val decoded = Base64.getDecoder().decode(input)
             String(decoded, Charsets.UTF_8)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Base64.getEncoder().encodeToString(input.toByteArray())
         }
     }
