@@ -15,6 +15,7 @@
             <li>Base64 conversion</li>
             <li>URL encode/decode</li>
             <li>Multipart to URL param converter</li>
+            <li>JSON encoding/decoding</li>
         </ul>
         This plugin adds a dedicated tool window for easy access.
     ]]>

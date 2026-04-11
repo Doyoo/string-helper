@@ -19,14 +19,18 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
-import java.awt.Container
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 import javax.swing.JPanel
 
 class MyToolWindowFactory : ToolWindowFactory {
+
+    enum class TransformMode {
+        Auto, JSON, Unicode, Base64, URL, Multipart
+    }
+
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        // 使用 Bundle 获取占位符文字
+
         val inputArea = JBTextArea().apply {
             lineWrap = true
             emptyText.text = MyPluginBundle.message("placeholder.input")
@@ -38,12 +42,11 @@ class MyToolWindowFactory : ToolWindowFactory {
             background = com.intellij.util.ui.UIUtil.getPanelBackground()
         }
 
-        // 下拉框选项可以保持不变，或同样放入 Bundle
-        val modeComboBox = ComboBox(arrayOf("Auto", "JSON", "Unicode", "Base64", "URL", "Multipart"))
+        val modeComboBox = ComboBox(TransformMode.entries.toTypedArray()).apply {
+            selectedItem = TransformMode.Auto
+        }
 
-        // --- 工具栏 Action 优化 ---
         val actionGroup = DefaultActionGroup().apply {
-            // 执行转换
             add(object : AnAction(
                 MyPluginBundle.message("button.transform"),
                 MyPluginBundle.message("tooltip.execute"),
@@ -53,17 +56,21 @@ class MyToolWindowFactory : ToolWindowFactory {
                     val inputText = inputArea.text
                     if (inputText.isBlank()) return
 
-                    val selectedMode = modeComboBox.selectedItem?.toString() ?: "Auto"
+                    val selectedMode =
+                        modeComboBox.selectedItem as? TransformMode ?: TransformMode.Auto
+
                     outputArea.text = when (selectedMode) {
-                        "Auto" -> StringTransformer.smartTransform(inputText)
-                        "JSON" -> StringTransformer.transformJson(inputText)
-                        // ... 其他逻辑 ...
-                        else -> ""
+                        TransformMode.Auto -> StringTransformer.smartTransform(inputText)
+                        TransformMode.JSON -> StringTransformer.transformJson(inputText)
+                        TransformMode.Unicode -> StringTransformer.transformUnicode(inputText)
+                        TransformMode.Base64 -> StringTransformer.transformBase64(inputText)
+                        TransformMode.URL -> StringTransformer.transformUrl(inputText) // ✅ 修复点
+                        TransformMode.Multipart -> StringTransformer.transformMultipart(inputText)
                     }
                 }
             })
 
-            // 复制按钮
+            // 📋 复制
             add(object : AnAction(
                 MyPluginBundle.message("button.copy"),
                 null,
@@ -77,7 +84,7 @@ class MyToolWindowFactory : ToolWindowFactory {
 
             addSeparator()
 
-            // 清空按钮
+            // 🧹 清空
             add(object : AnAction(
                 MyPluginBundle.message("button.clear"),
                 null,
@@ -90,39 +97,34 @@ class MyToolWindowFactory : ToolWindowFactory {
             })
         }
 
-        val toolbar = ActionManager.getInstance().createActionToolbar("ModernToolbar", actionGroup, true)
+        val toolbar = ActionManager.getInstance()
+            .createActionToolbar("ModernToolbar", actionGroup, true)
         toolbar.targetComponent = inputArea
-
-        // --- 现代布局组装 ---
-        val topPanel = panel {
-            row(MyPluginBundle.message("label.mode")) {
-                cell(modeComboBox)
-                cell(toolbar.component)
-            }
-        }
 
         val splitter = OnePixelSplitter(true, 0.5f).apply {
             firstComponent = JBScrollPane(inputArea).apply {
-                border = IdeBorderFactory.createTitledBorder(MyPluginBundle.message("label.input"), false)
+                border = IdeBorderFactory.createTitledBorder(
+                    MyPluginBundle.message("label.input"),
+                    false
+                )
             }
             secondComponent = JBScrollPane(outputArea).apply {
-                border = IdeBorderFactory.createTitledBorder(MyPluginBundle.message("label.result"), false)
+                border = IdeBorderFactory.createTitledBorder(
+                    MyPluginBundle.message("label.result"),
+                    false
+                )
             }
         }
 
         val container = JPanel(BorderLayout()).apply {
-            // 为整个面板增加四周的间距（上，左，下，右）
-            // JBUI.scale(10) 会根据用户 IDE 的缩放比例自动调整像素
             border = JBUI.Borders.empty(10, 12)
 
-            // 顶部操作栏
             val topPanel = panel {
                 row(MyPluginBundle.message("label.mode")) {
                     cell(modeComboBox)
                     cell(toolbar.component)
                 }
             }.apply {
-                // 给模式选择行和下方的分割器之间加一点垂直间距
                 border = JBUI.Borders.emptyBottom(8)
             }
 
@@ -130,7 +132,9 @@ class MyToolWindowFactory : ToolWindowFactory {
             add(splitter, BorderLayout.CENTER)
         }
 
-        val content = ContentFactory.getInstance().createContent(container, null, false)
+        val content = ContentFactory.getInstance()
+            .createContent(container, null, false)
+
         toolWindow.contentManager.addContent(content)
     }
 }

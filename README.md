@@ -22,12 +22,56 @@
 <p>A small utility plugin that provides quick string transformations like Unicode, Base64,
 URL encoding/decoding and multipart-boundary conversion right inside IntelliJ IDEA.</p>
 
-<ul>
-    <li>Unicode encoding/decoding</li>
-    <li>Base64 conversion</li>
-    <li>URL encode/decode</li>
-    <li>Multipart to URL param converter</li>
-</ul>
+## ⚡ Key Features
+
+### 🧠 Smart Auto Detection
+Automatically detects input type:
+- JSON (pretty print / compact / fix escape issues)
+- Base64 (encode / decode)
+- URL encoding / decoding
+- Unicode escape sequences
+- Multipart form-data parsing
+
+---
+
+### 🔄 One-Click Transform
+No need to select mode manually:
+- Auto mode detects format automatically
+- Manual mode available for precision control
+
+---
+
+### 🧩 JSON Intelligence
+- Pretty format JSON
+- Compact JSON output
+- Fix malformed escape sequences
+- Error highlighting with line/column detection
+- Syntax highlighting inside editor
+
+---
+
+### 🌐 URL Tools
+- Encode URL parameters
+- Decode percent-encoded strings
+- Safe handling of special characters
+
+---
+
+### 🔤 Encoding Tools
+- Unicode escape ↔ text conversion
+- Base64 encode/decode
+- Multipart body → query string conversion
+
+---
+
+### 🎯 Smart UI Experience
+- Split editor layout (Input / Output)
+- Real-time transformation preview
+- Syntax-highlighted JSON output
+- Copy / Clear / Transform toolbar
+- Auto-scroll result view
+
+---
 
 <p>This plugin adds a dedicated tool window for easy access.</p>
 <!-- Plugin description end -->

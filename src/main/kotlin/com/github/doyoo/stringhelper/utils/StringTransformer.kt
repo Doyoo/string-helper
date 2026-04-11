@@ -56,14 +56,6 @@ class StringTransformer {
             }
         }
 
-        fun transformUrl(input: String): String {
-            return if (input.contains("%")) {
-                URLDecoder.decode(input, Charsets.UTF_8)
-            } else {
-                URLEncoder.encode(input, Charsets.UTF_8)
-            }
-        }
-
         fun transformMultipart(input: String): String {
             val fields = mutableMapOf<String, String>()
             val lines = input.lines()
@@ -75,7 +67,6 @@ class StringTransformer {
                 val trimmed = segment.trim()
                 if (trimmed.isEmpty() || trimmed == "--") continue
 
-                // 尽量处理 header/body 分隔，无论是 \r\n\r\n 还是 \n\n
                 val headerBodySepR = trimmed.indexOf("\r\n\r\n")
                 val headerBodySepN = trimmed.indexOf("\n\n")
                 val sep = when {
@@ -84,7 +75,6 @@ class StringTransformer {
                     else -> continue
                 }
 
-                // 检查 sep + 分隔长度 是否在范围内
                 val bodyStart = if (headerBodySepR >= 0) sep + 4 else sep + 2
                 if (bodyStart >= trimmed.length) continue
 
@@ -106,13 +96,10 @@ class StringTransformer {
             val trimmed = input.trim()
             if (trimmed.isEmpty()) return ""
 
-            // --- 核心逻辑：处理转义字符 ---
-            // 如果字符串包含 \" 且以 { 或 [ 开头（或被引号包裹），先进行反转义
             var processed = trimmed
             if (processed.contains("\\\"")) {
                 processed = processed.replace("\\\"", "\"")
                     .replace("\\\\", "\\")
-                // 如果反转义后首尾有多余引号，剥离它们
                 if (processed.startsWith("\"") && processed.endsWith("\"")) {
                     processed = processed.substring(1, processed.length - 1)
                 }
@@ -122,12 +109,24 @@ class StringTransformer {
                 val jsonElement = JsonParser.parseString(processed)
                 val gsonPretty = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
                 val gsonCompact = GsonBuilder().disableHtmlEscaping().create()
-
-                // 如果原始输入包含换行符，则执行压缩，否则执行美化
                 if (trimmed.contains("\n")) {
                     gsonCompact.toJson(jsonElement)
                 } else {
                     gsonPretty.toJson(jsonElement)
+                }
+            } catch (e: Exception) {
+                MyPluginBundle.message("msg.json.error", e.localizedMessage)
+            }
+        }
+
+        fun transformUrl(input: String): String {
+            val trimmed = input.trim()
+            return try {
+                val decoded = URLDecoder.decode(trimmed, Charsets.UTF_8)
+                if (decoded != trimmed) {
+                    decoded
+                } else {
+                    URLEncoder.encode(trimmed, Charsets.UTF_8)
                 }
             } catch (e: Exception) {
                 MyPluginBundle.message("msg.json.error", e.localizedMessage)
@@ -145,7 +144,6 @@ class StringTransformer {
             val decoded = Base64.getDecoder().decode(input)
             String(decoded, Charsets.UTF_8)
         } catch (e: Exception) {
-            // 如果不是 Base64，执行编码
             Base64.getEncoder().encodeToString(input.toByteArray())
         }
     }
