@@ -1,10 +1,7 @@
 package com.github.doyoo.stringhelper.utils
 
-import com.github.doyoo.stringhelper.bundle.MyPluginBundle
-import com.github.doyoo.stringhelper.toolWindow.MyToolWindowFactory
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
-import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
@@ -61,7 +58,7 @@ class StringTransformer {
             return when {
                 isJson(t) -> transformJson(t)
                 isXml(t) -> transformXml(t)
-                isMultipart(t) -> transformMultipart(t) // 👈 加这个
+                isMultipart(t) -> transformMultipart(t)
                 isBase64(t) -> transformBase64(t)
                 else -> transformUnicode(t)
             }
@@ -207,7 +204,7 @@ class StringTransformer {
                 } else {
                     TransformResult(URLEncoder.encode(trimmed, Charsets.UTF_8))
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 TransformResult(
                     input,
                     listOf(HighlightError(0, input.length, "Invalid URL encoding"))
@@ -240,20 +237,6 @@ class StringTransformer {
             }
         }
 
-        private fun isProbablyJson(input: String): Boolean {
-            val s = input.replace("\\\"", "\"")
-            return (s.startsWith("{") && s.endsWith("}")) ||
-                    (s.startsWith("[") && s.endsWith("]")) ||
-                    (s.startsWith("\"") && s.endsWith("\"") && s.contains(":"))
-        }
-
-        private fun tryBase64(input: String): String = try {
-            val decoded = Base64.getDecoder().decode(input)
-            String(decoded, Charsets.UTF_8)
-        } catch (_: Exception) {
-            Base64.getEncoder().encodeToString(input.toByteArray())
-        }
-
         fun detect(text: String): Triple<String, FileType, String> {
             val t = text.trim()
             return when {
@@ -271,9 +254,6 @@ class StringTransformer {
 
         fun isBase64(text: String) =
             text.length % 4 == 0 && text.matches(Regex("^[A-Za-z0-9+/=]+$"))
-
-        fun isUnicode(text: String) =
-            text.contains("\\u")
 
         fun isMultipart(text: String) =
             text.startsWith("--")
