@@ -34,6 +34,7 @@ dependencies {
     testImplementation(libs.opentest4j)
 
     implementation(libs.gson)
+    implementation(libs.databind)
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {

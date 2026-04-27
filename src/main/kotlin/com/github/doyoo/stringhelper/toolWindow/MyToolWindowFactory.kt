@@ -1,132 +1,154 @@
 package com.github.doyoo.stringhelper.toolWindow
 
-import com.github.doyoo.stringhelper.bundle.MyPluginBundle
 import com.github.doyoo.stringhelper.utils.StringTransformer
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.ex.EditorEx
+import com.intellij.openapi.editor.highlighter.EditorHighlighterFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.ui.IdeBorderFactory
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.content.ContentFactory
-import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.FlowLayout
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import javax.swing.JLabel
 import javax.swing.JPanel
 
 class MyToolWindowFactory : ToolWindowFactory {
 
-    enum class TransformMode {
-        Auto, JSON, Unicode, Base64, URL, Multipart
-    }
-
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-
         val inputArea = JBTextArea().apply {
             lineWrap = true
-            emptyText.text = MyPluginBundle.message("placeholder.input")
+            emptyText.text = "Enter text..."
+            border = JBUI.Borders.empty(6)
         }
 
-        val outputArea = JBTextArea().apply {
-            lineWrap = true
-            isEditable = false
-            background = com.intellij.util.ui.UIUtil.getPanelBackground()
+        val document = EditorFactory.getInstance().createDocument("")
+        val outputEditor = EditorFactory.getInstance()
+            .createEditor(document, project) as EditorEx
+
+        outputEditor.apply {
+            isViewer = false
+            settings.apply {
+                isLineNumbersShown = true
+                isFoldingOutlineShown = true
+                isIndentGuidesShown = true
+            }
         }
 
-        val modeComboBox = ComboBox(TransformMode.entries.toTypedArray()).apply {
-            selectedItem = TransformMode.Auto
+        val statusLabel = JLabel("Type: -")
+        val modeComboBox = ComboBox(
+            StringTransformer.TransformMode.entries.toTypedArray()
+        ).apply {
+            selectedItem = StringTransformer.TransformMode.Auto
+        }
+
+        fun transform() {
+            val input = inputArea.text
+            if (input.isBlank()) return
+
+            val mode = modeComboBox.selectedItem as StringTransformer.TransformMode
+            val result = StringTransformer.transformWithErrors(input, mode)
+
+            val (finalText, fileType, typeName) =
+                StringTransformer.detect(result.text)
+
+            WriteCommandAction.runWriteCommandAction(project) {
+                document.setText(finalText)
+            }
+
+            outputEditor.highlighter =
+                EditorHighlighterFactory.getInstance()
+                    .createEditorHighlighter(
+                        fileType,
+                        outputEditor.colorsScheme,
+                        project
+                    )
+
+            StringTransformer.applyHighlights(outputEditor, result.errors)
+            statusLabel.text = "Type: $typeName"
         }
 
         val actionGroup = DefaultActionGroup().apply {
-            add(object : AnAction(
-                MyPluginBundle.message("button.transform"),
-                MyPluginBundle.message("tooltip.execute"),
-                AllIcons.Actions.Execute
-            ) {
-                override fun actionPerformed(e: AnActionEvent) {
-                    val inputText = inputArea.text
-                    if (inputText.isBlank()) return
 
-                    val selectedMode =
-                        modeComboBox.selectedItem as? TransformMode ?: TransformMode.Auto
-
-                    outputArea.text = when (selectedMode) {
-                        TransformMode.Auto -> StringTransformer.smartTransform(inputText)
-                        TransformMode.JSON -> StringTransformer.transformJson(inputText)
-                        TransformMode.Unicode -> StringTransformer.transformUnicode(inputText)
-                        TransformMode.Base64 -> StringTransformer.transformBase64(inputText)
-                        TransformMode.URL -> StringTransformer.transformUrl(inputText) // ✅ 修复点
-                        TransformMode.Multipart -> StringTransformer.transformMultipart(inputText)
-                    }
-                }
+            add(object : AnAction("Run", "Execute", AllIcons.Actions.Execute) {
+                override fun actionPerformed(e: AnActionEvent) = transform()
             })
 
-            // 📋 复制
-            add(object : AnAction(
-                MyPluginBundle.message("button.copy"),
-                null,
-                AllIcons.Actions.Copy
-            ) {
+            add(object : AnAction("Copy", null, AllIcons.Actions.Copy) {
                 override fun actionPerformed(e: AnActionEvent) {
-                    val selection = StringSelection(outputArea.text)
-                    Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
+                    val selection = StringSelection(document.text)
+                    Toolkit.getDefaultToolkit().systemClipboard
+                        .setContents(selection, selection)
                 }
             })
 
             addSeparator()
 
-            // 🧹 清空
-            add(object : AnAction(
-                MyPluginBundle.message("button.clear"),
-                null,
-                AllIcons.Actions.GC
-            ) {
+            add(object : AnAction("Clear", null, AllIcons.Actions.GC) {
                 override fun actionPerformed(e: AnActionEvent) {
                     inputArea.text = ""
-                    outputArea.text = ""
+                    WriteCommandAction.runWriteCommandAction(project) {
+                        document.setText("")
+                    }
+                    statusLabel.text = "Type: -"
                 }
             })
         }
 
         val toolbar = ActionManager.getInstance()
-            .createActionToolbar("ModernToolbar", actionGroup, true)
-        toolbar.targetComponent = inputArea
+            .createActionToolbar("ParserToolbar", actionGroup, true).apply {
+                targetComponent = inputArea
+            }
+
+        // =========================
+        // Top Panel (IDE style spacing)
+        // =========================
+        val topPanel = JPanel(BorderLayout()).apply {
+            border = JBUI.Borders.empty(6, 8)
+
+            val left = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                add(modeComboBox)
+            }
+
+            val center = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                add(toolbar.component)
+            }
+
+            val right = JPanel(FlowLayout(FlowLayout.RIGHT)).apply {
+                add(statusLabel)
+            }
+
+            add(left, BorderLayout.WEST)
+            add(center, BorderLayout.CENTER)
+            add(right, BorderLayout.EAST)
+        }
 
         val splitter = OnePixelSplitter(true, 0.5f).apply {
             firstComponent = JBScrollPane(inputArea).apply {
-                border = IdeBorderFactory.createTitledBorder(
-                    MyPluginBundle.message("label.input"),
-                    false
-                )
+                border = JBUI.Borders.empty(8)
             }
-            secondComponent = JBScrollPane(outputArea).apply {
-                border = IdeBorderFactory.createTitledBorder(
-                    MyPluginBundle.message("label.result"),
-                    false
-                )
+
+            secondComponent = outputEditor.component.apply {
+                border = JBUI.Borders.empty(8)
             }
         }
 
         val container = JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty(10, 12)
-
-            val topPanel = panel {
-                row(MyPluginBundle.message("label.mode")) {
-                    cell(modeComboBox)
-                    cell(toolbar.component)
-                }
-            }.apply {
-                border = JBUI.Borders.emptyBottom(8)
-            }
 
             add(topPanel, BorderLayout.NORTH)
             add(splitter, BorderLayout.CENTER)
@@ -136,5 +158,9 @@ class MyToolWindowFactory : ToolWindowFactory {
             .createContent(container, null, false)
 
         toolWindow.contentManager.addContent(content)
+
+        Disposer.register(content) {
+            EditorFactory.getInstance().releaseEditor(outputEditor)
+        }
     }
 }

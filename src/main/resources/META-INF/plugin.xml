@@ -44,6 +44,16 @@
                     text="Multipart">
                 <keyboard-shortcut first-keystroke="alt M" keymap="$default"/>
             </action>
+
+            <action id="cn.aaron.stringtools.Xml" class="com.github.doyoo.stringhelper.actions.TransformXml"
+                    text="Xml">
+                <keyboard-shortcut first-keystroke="alt X" keymap="$default"/>
+            </action>
+
+            <action id="cn.aaron.stringtools.Json" class="com.github.doyoo.stringhelper.actions.TransformJson"
+                    text="Json">
+                <keyboard-shortcut first-keystroke="alt J" keymap="$default"/>
+            </action>
         </group>
     </actions>
 
