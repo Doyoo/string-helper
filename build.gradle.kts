@@ -35,6 +35,8 @@ dependencies {
 
     implementation(libs.gson)
     implementation(libs.databind)
+    implementation(libs.zxing.code)
+    implementation(libs.zxing.javase)
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {

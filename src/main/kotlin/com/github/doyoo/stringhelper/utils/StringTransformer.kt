@@ -1,7 +1,14 @@
 package com.github.doyoo.stringhelper.utils
 
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.client.j2se.MatrixToImageWriter
+import com.google.zxing.qrcode.QRCodeWriter
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.markup.EffectType
 import com.intellij.openapi.editor.markup.HighlighterLayer
@@ -11,6 +18,7 @@ import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.ui.JBColor
+import java.awt.image.BufferedImage
 import java.io.StringReader
 import java.io.StringWriter
 import java.net.URLDecoder
@@ -25,13 +33,22 @@ import java.util.regex.Pattern
 class StringTransformer {
 
     enum class TransformMode {
-        Auto, JSON, XML, Unicode, Base64, URL, Multipart
+        Auto, JSON, XML, Unicode, Base64, URL, Multipart, QR
     }
 
     data class TransformResult(
         val text: String,
         val errors: List<HighlightError> = emptyList()
     )
+
+    data class QRResult(
+        val image: BufferedImage
+    )
+
+    sealed class TransformOutput {
+        data class Text(val result: TransformResult) : TransformOutput()
+        data class QR(val result: QRResult) : TransformOutput()
+    }
 
     data class HighlightError(
         val start: Int,
@@ -40,16 +57,24 @@ class StringTransformer {
     )
 
     companion object {
-
-        fun transformWithErrors(input: String, mode: TransformMode): TransformResult {
+        fun transformWithErrors(
+            input: String,
+            mode: TransformMode
+        ): TransformOutput {
             return when (mode) {
-                TransformMode.JSON -> transformJson(input)
-                TransformMode.XML -> transformXml(input)
-                TransformMode.Unicode -> transformUnicode(input)
-                TransformMode.Base64 -> transformBase64(input)
-                TransformMode.URL -> transformUrl(input)
-                TransformMode.Multipart -> transformMultipart(input)
-                TransformMode.Auto -> autoTransform(input)
+                TransformMode.QR -> {
+                    TransformOutput.QR(
+                        QRResult(generateQRCode(input.trim()))
+                    )
+                }
+
+                TransformMode.JSON -> TransformOutput.Text(transformJson(input))
+                TransformMode.XML -> TransformOutput.Text(transformXml(input))
+                TransformMode.Unicode -> TransformOutput.Text(transformUnicode(input))
+                TransformMode.Base64 -> TransformOutput.Text(transformBase64(input))
+                TransformMode.URL -> TransformOutput.Text(transformUrl(input))
+                TransformMode.Multipart -> TransformOutput.Text(transformMultipart(input))
+                TransformMode.Auto -> TransformOutput.Text(autoTransform(input))
             }
         }
 
@@ -167,30 +192,98 @@ class StringTransformer {
 
         fun transformJson(input: String): TransformResult {
             val trimmed = input.trim()
-            if (trimmed.isEmpty()) return TransformResult("")
-
-            var processed = trimmed
-            if (processed.contains("\\\"")) {
-                processed = processed.replace("\\\"", "\"")
-                    .replace("\\\\", "\\")
-                if (processed.startsWith("\"") && processed.endsWith("\"")) {
-                    processed = processed.substring(1, processed.length - 1)
-                }
+            if (trimmed.isEmpty()) {
+                return TransformResult("")
             }
 
             return try {
-                val jsonElement = JsonParser.parseString(processed)
-                val gsonPretty = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
-                val gsonCompact = GsonBuilder().disableHtmlEscaping().create()
-                return if (trimmed.contains("\n")) {
-                    TransformResult(gsonCompact.toJson(jsonElement))
-                } else {
-                    TransformResult(gsonPretty.toJson(jsonElement))
+                var jsonElement = JsonParser.parseString(trimmed)
+                if (
+                    jsonElement.isJsonPrimitive &&
+                    jsonElement.asJsonPrimitive.isString
+                ) {
+                    val inner = jsonElement.asString.trim()
+                    if (
+                        inner.startsWith("{") ||
+                        inner.startsWith("[")
+                    ) {
+                        jsonElement = JsonParser.parseString(inner)
+                    }
                 }
+
+                fun deepTransform(element: JsonElement): JsonElement {
+
+                    return when {
+                        element.isJsonObject -> {
+                            val newObj = JsonObject()
+                            element.asJsonObject.entrySet().forEach { (key, value) ->
+                                newObj.add(key, deepTransform(value))
+                            }
+
+                            newObj
+                        }
+
+                        element.isJsonArray -> {
+                            val newArray = JsonArray()
+                            element.asJsonArray.forEach {
+                                newArray.add(deepTransform(it))
+                            }
+                            newArray
+                        }
+
+                        element.isJsonPrimitive &&
+                                element.asJsonPrimitive.isString -> {
+                            val text = element.asString.trim()
+                            val mayBeJson =
+                                (text.startsWith("{") && text.endsWith("}")) ||
+                                        (text.startsWith("[") && text.endsWith("]"))
+
+                            if (mayBeJson) {
+
+                                try {
+                                    val parsed =
+                                        JsonParser.parseString(text)
+                                    deepTransform(parsed)
+                                } catch (_: Exception) {
+                                    element
+                                }
+                            } else {
+                                element
+                            }
+                        }
+
+                        else -> element
+                    }
+                }
+
+                jsonElement = deepTransform(jsonElement)
+                val gsonPretty = GsonBuilder()
+                    .setPrettyPrinting()
+                    .disableHtmlEscaping()
+                    .create()
+
+                val gsonCompact = GsonBuilder()
+                    .disableHtmlEscaping()
+                    .create()
+
+                val result = if (trimmed.contains("\n")) {
+                    gsonCompact.toJson(jsonElement)
+                } else {
+                    gsonPretty.toJson(jsonElement)
+                }
+
+                TransformResult(result)
+
             } catch (e: Exception) {
                 TransformResult(
                     input,
-                    listOf(HighlightError(0, input.length, "JSON Error: ${e.message}"))
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "JSON Error: ${e.message}"
+                        )
+                    )
                 )
             }
         }
@@ -246,19 +339,28 @@ class StringTransformer {
             }
         }
 
-        fun isJson(text: String) =
+        fun generateQRCode(text: String, size: Int = 320): BufferedImage {
+            val writer = QRCodeWriter()
+            val hints = mapOf(
+                EncodeHintType.MARGIN to 0
+            )
+            val matrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size, hints)
+            return MatrixToImageWriter.toBufferedImage(matrix)
+        }
+
+        private fun isJson(text: String) =
             text.startsWith("{") || text.startsWith("[")
 
-        fun isXml(text: String) =
+        private fun isXml(text: String) =
             text.startsWith("<") && text.endsWith(">")
 
-        fun isBase64(text: String) =
+        private fun isBase64(text: String) =
             text.length % 4 == 0 && text.matches(Regex("^[A-Za-z0-9+/=]+$"))
 
-        fun isMultipart(text: String) =
+        private fun isMultipart(text: String) =
             text.startsWith("--")
 
-        fun getFileType(ext: String) =
+        private fun getFileType(ext: String) =
             FileTypeManager.getInstance().getFileTypeByExtension(ext)
     }
 }

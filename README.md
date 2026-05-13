@@ -29,6 +29,7 @@ Automatically detects input type:
 - JSON (pretty print / compact / fix escape issues)
 - Base64 (encode / decode)
 - URL encoding / decoding
+- XML encoding / decoding
 - Unicode escape sequences
 - Multipart form-data parsing
 
@@ -60,6 +61,7 @@ No need to select mode manually:
 ### 🔤 Encoding Tools
 - Unicode escape ↔ text conversion
 - Base64 encode/decode
+- XML encode/decode
 - Multipart body → query string conversion
 
 ---
@@ -69,6 +71,7 @@ No need to select mode manually:
 - Real-time transformation preview
 - Syntax-highlighted JSON output
 - Copy / Clear / Transform toolbar
+- Support High lighter
 - Auto-scroll result view
 
 ---

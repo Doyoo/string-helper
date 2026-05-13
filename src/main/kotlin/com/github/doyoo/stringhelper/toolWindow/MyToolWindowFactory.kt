@@ -24,6 +24,7 @@ import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import javax.swing.ImageIcon
 import javax.swing.JLabel
 import javax.swing.JPanel
 
@@ -39,71 +40,70 @@ class MyToolWindowFactory : ToolWindowFactory {
         val document = EditorFactory.getInstance().createDocument("")
         val outputEditor = EditorFactory.getInstance()
             .createEditor(document, project) as EditorEx
-
-        outputEditor.apply {
-            isViewer = false
-            settings.apply {
-                isLineNumbersShown = true
-                isFoldingOutlineShown = true
-                isIndentGuidesShown = true
-            }
-        }
-
         val statusLabel = JLabel("Type: -")
         val modeComboBox = ComboBox(
             StringTransformer.TransformMode.entries.toTypedArray()
-        ).apply {
-            selectedItem = StringTransformer.TransformMode.Auto
-        }
+        )
 
         fun transform() {
             val input = inputArea.text
             if (input.isBlank()) return
 
             val mode = modeComboBox.selectedItem as StringTransformer.TransformMode
-            val result = StringTransformer.transformWithErrors(input, mode)
+            when (val output = StringTransformer.transformWithErrors(input, mode)) {
+                is StringTransformer.TransformOutput.QR -> {
+                    outputEditor.component.apply {
+                        removeAll()
+                        layout = BorderLayout()
+                        add(JLabel(ImageIcon(output.result.image)), BorderLayout.CENTER)
+                        revalidate()
+                        repaint()
+                    }
+                    statusLabel.text = "Type: QR"
+                }
 
-            val (finalText, fileType, typeName) =
-                StringTransformer.detect(result.text)
+                is StringTransformer.TransformOutput.Text -> {
+                    val (finalText, fileType, typeName) =
+                        StringTransformer.detect(output.result.text)
 
-            WriteCommandAction.runWriteCommandAction(project) {
-                document.setText(finalText)
+                    WriteCommandAction.runWriteCommandAction(project) {
+                        document.setText(finalText)
+                    }
+
+                    outputEditor.highlighter =
+                        EditorHighlighterFactory.getInstance()
+                            .createEditorHighlighter(
+                                fileType,
+                                outputEditor.colorsScheme,
+                                project
+                            )
+
+                    StringTransformer.applyHighlights(outputEditor, output.result.errors)
+                    statusLabel.text = "Type: $typeName"
+                }
             }
-
-            outputEditor.highlighter =
-                EditorHighlighterFactory.getInstance()
-                    .createEditorHighlighter(
-                        fileType,
-                        outputEditor.colorsScheme,
-                        project
-                    )
-
-            StringTransformer.applyHighlights(outputEditor, result.errors)
-            statusLabel.text = "Type: $typeName"
         }
 
         val actionGroup = DefaultActionGroup().apply {
-
-            add(object : AnAction("Run", "Execute", AllIcons.Actions.Execute) {
+            add(object : AnAction("Run", null, AllIcons.Actions.Execute) {
                 override fun actionPerformed(e: AnActionEvent) = transform()
             })
 
             add(object : AnAction("Copy", null, AllIcons.Actions.Copy) {
                 override fun actionPerformed(e: AnActionEvent) {
-                    val selection = StringSelection(document.text)
-                    Toolkit.getDefaultToolkit().systemClipboard
-                        .setContents(selection, selection)
+                    val sel = StringSelection(document.text)
+                    Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, sel)
                 }
             })
-
-            addSeparator()
 
             add(object : AnAction("Clear", null, AllIcons.Actions.GC) {
                 override fun actionPerformed(e: AnActionEvent) {
                     inputArea.text = ""
+
                     WriteCommandAction.runWriteCommandAction(project) {
                         document.setText("")
                     }
+
                     statusLabel.text = "Type: -"
                 }
             })
@@ -112,15 +112,14 @@ class MyToolWindowFactory : ToolWindowFactory {
         val toolbar = ActionManager.getInstance()
             .createActionToolbar("ParserToolbar", actionGroup, true).apply {
                 targetComponent = inputArea
+                component.border = JBUI.Borders.empty(0, 4)
             }
 
-        // =========================
-        // Top Panel (IDE style spacing)
-        // =========================
         val topPanel = JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty(6, 8)
 
             val left = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                border = JBUI.Borders.emptyLeft(0)
                 add(modeComboBox)
             }
 
@@ -139,17 +138,16 @@ class MyToolWindowFactory : ToolWindowFactory {
 
         val splitter = OnePixelSplitter(true, 0.5f).apply {
             firstComponent = JBScrollPane(inputArea).apply {
-                border = JBUI.Borders.empty(8)
+                border = JBUI.Borders.empty(6)
             }
 
             secondComponent = outputEditor.component.apply {
-                border = JBUI.Borders.empty(8)
+                border = JBUI.Borders.empty(6)
             }
         }
 
         val container = JPanel(BorderLayout()).apply {
-            border = JBUI.Borders.empty(10, 12)
-
+            border = JBUI.Borders.empty(8, 10)
             add(topPanel, BorderLayout.NORTH)
             add(splitter, BorderLayout.CENTER)
         }
@@ -158,7 +156,6 @@ class MyToolWindowFactory : ToolWindowFactory {
             .createContent(container, null, false)
 
         toolWindow.contentManager.addContent(content)
-
         Disposer.register(content) {
             EditorFactory.getInstance().releaseEditor(outputEditor)
         }

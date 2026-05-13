@@ -4,6 +4,7 @@ junit = "4.13.2"
 opentest4j = "1.3.0"
 gson = "2.13.2"
 databind = "2.17.0"
+zxing = "3.5.3"
 
 # plugins
 changelog = "2.5.0"
@@ -17,6 +18,8 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 opentest4j = { group = "org.opentest4j", name = "opentest4j", version.ref = "opentest4j" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "databind" }
+zxing-code = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+zxing-javase = { group = "com.google.zxing", name = "javase", version.ref = "zxing" }
 
 [plugins]
 changelog = { id = "org.jetbrains.changelog", version.ref = "changelog" }
