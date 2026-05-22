@@ -23,6 +23,7 @@ import java.io.StringReader
 import java.io.StringWriter
 import java.net.URLDecoder
 import java.net.URLEncoder
+import java.security.MessageDigest
 import java.util.Base64
 import java.util.regex.Pattern
 
@@ -33,7 +34,7 @@ import java.util.regex.Pattern
 class StringTransformer {
 
     enum class TransformMode {
-        Auto, JSON, XML, Unicode, Base64, URL, Multipart, QR
+        Auto, JSON, XML, Unicode, Base64, URL, MD5, Multipart, QR
     }
 
     data class TransformResult(
@@ -73,6 +74,7 @@ class StringTransformer {
                 TransformMode.Unicode -> TransformOutput.Text(transformUnicode(input))
                 TransformMode.Base64 -> TransformOutput.Text(transformBase64(input))
                 TransformMode.URL -> TransformOutput.Text(transformUrl(input))
+                TransformMode.MD5 -> TransformOutput.Text(transformMd5(input))
                 TransformMode.Multipart -> TransformOutput.Text(transformMultipart(input))
                 TransformMode.Auto -> TransformOutput.Text(autoTransform(input))
             }
@@ -191,89 +193,27 @@ class StringTransformer {
         }
 
         fun transformJson(input: String): TransformResult {
-            val trimmed = input.trim()
-            if (trimmed.isEmpty()) {
+            val text = input.trim()
+            if (text.isEmpty()) {
                 return TransformResult("")
             }
 
             return try {
-                var jsonElement = JsonParser.parseString(trimmed)
-                if (
-                    jsonElement.isJsonPrimitive &&
-                    jsonElement.asJsonPrimitive.isString
-                ) {
-                    val inner = jsonElement.asString.trim()
-                    if (
-                        inner.startsWith("{") ||
-                        inner.startsWith("[")
-                    ) {
-                        jsonElement = JsonParser.parseString(inner)
-                    }
-                }
-
-                fun deepTransform(element: JsonElement): JsonElement {
-
-                    return when {
-                        element.isJsonObject -> {
-                            val newObj = JsonObject()
-                            element.asJsonObject.entrySet().forEach { (key, value) ->
-                                newObj.add(key, deepTransform(value))
-                            }
-
-                            newObj
-                        }
-
-                        element.isJsonArray -> {
-                            val newArray = JsonArray()
-                            element.asJsonArray.forEach {
-                                newArray.add(deepTransform(it))
-                            }
-                            newArray
-                        }
-
-                        element.isJsonPrimitive &&
-                                element.asJsonPrimitive.isString -> {
-                            val text = element.asString.trim()
-                            val mayBeJson =
-                                (text.startsWith("{") && text.endsWith("}")) ||
-                                        (text.startsWith("[") && text.endsWith("]"))
-
-                            if (mayBeJson) {
-
-                                try {
-                                    val parsed =
-                                        JsonParser.parseString(text)
-                                    deepTransform(parsed)
-                                } catch (_: Exception) {
-                                    element
-                                }
-                            } else {
-                                element
-                            }
-                        }
-
-                        else -> element
-                    }
-                }
-
-                jsonElement = deepTransform(jsonElement)
-                val gsonPretty = GsonBuilder()
+                val jsonElement = parseDeep(
+                    unescapeJsonIfNeeded(
+                        text
+                            .replace('“', '"')
+                            .replace('”', '"')
+                    )
+                )
+                val gson = GsonBuilder()
                     .setPrettyPrinting()
                     .disableHtmlEscaping()
                     .create()
 
-                val gsonCompact = GsonBuilder()
-                    .disableHtmlEscaping()
-                    .create()
-
-                val result = if (trimmed.contains("\n")) {
-                    gsonCompact.toJson(jsonElement)
-                } else {
-                    gsonPretty.toJson(jsonElement)
-                }
-
-                TransformResult(result)
-
+                TransformResult(
+                    gson.toJson(jsonElement)
+                )
             } catch (e: Exception) {
                 TransformResult(
                     input,
@@ -301,6 +241,32 @@ class StringTransformer {
                 TransformResult(
                     input,
                     listOf(HighlightError(0, input.length, "Invalid URL encoding"))
+                )
+            }
+        }
+
+        fun transformMd5(input: String): TransformResult {
+            val trimmed = input.trim()
+            return try {
+                if (trimmed.isEmpty()) {
+                    return TransformResult("")
+                }
+
+                val md5 = MessageDigest
+                    .getInstance("MD5")
+                    .digest(trimmed.toByteArray(Charsets.UTF_8))
+                    .joinToString("") { "%02x".format(it) }
+                TransformResult(md5)
+            } catch (e: Exception) {
+                TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "MD5 Error: ${e.message}"
+                        )
+                    )
                 )
             }
         }
@@ -346,6 +312,75 @@ class StringTransformer {
             )
             val matrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size, hints)
             return MatrixToImageWriter.toBufferedImage(matrix)
+        }
+
+        private fun parseDeep(text: String): JsonElement {
+            var element = JsonParser.parseString(text)
+            if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                val inner = element
+                    .asString
+                    .trim()
+                if (looksLikeJson(inner)) {
+                    val normalized = unescapeJsonIfNeeded(inner)
+                    element = JsonParser.parseString(normalized)
+                }
+            }
+            return deepTransform(element)
+        }
+
+        private fun deepTransform(element: JsonElement): JsonElement {
+            return when {
+                element.isJsonObject -> {
+                    val obj = JsonObject()
+                    element.asJsonObject.entrySet()
+                        .forEach { (k, v) ->
+                            obj.add(k, deepTransform(v))
+                        }
+                    obj
+                }
+
+                element.isJsonArray -> {
+                    val arr = JsonArray()
+                    element.asJsonArray.forEach {
+                        arr.add(deepTransform(it))
+                    }
+                    arr
+                }
+
+                element.isJsonPrimitive && element.asJsonPrimitive.isString -> {
+                    val str = element
+                        .asString
+                        .trim()
+                    if (!looksLikeJson(str)) {
+                        return element
+                    }
+
+                    try {
+                        val normalized = unescapeJsonIfNeeded(str)
+                        val parsed = JsonParser.parseString(normalized)
+                        deepTransform(parsed)
+                    } catch (_: Exception) {
+                        element
+                    }
+                }
+
+                else -> element
+            }
+        }
+
+        private fun looksLikeJson(text: String): Boolean {
+            val t = text.trim()
+            return ((t.startsWith("{") && t.endsWith("}"))
+                    || (t.startsWith("[") && t.endsWith("]"))
+                    || t.startsWith("\\{")
+                    || t.startsWith("\\["))
+        }
+
+        private fun unescapeJsonIfNeeded(text: String): String {
+            return text
+                .trim()
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
         }
 
         private fun isJson(text: String) =
