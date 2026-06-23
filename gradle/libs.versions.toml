@@ -9,7 +9,7 @@ zxing = "3.5.3"
 # plugins
 changelog = "2.5.0"
 intelliJPlatform = "2.14.0"
-kotlin = "1.9.24"
+kotlin = "2.3.20"
 kover = "0.9.5"
 qodana = "2025.3.1"
 
