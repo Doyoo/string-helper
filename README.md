@@ -32,6 +32,7 @@ Automatically detects input type:
 - XML encoding / decoding
 - Unicode escape sequences
 - Multipart form-data parsing
+- JSON/SQL auto minify 
 
 ---
 
@@ -63,6 +64,7 @@ No need to select mode manually:
 - Base64 encode/decode
 - XML encode/decode
 - Multipart body → query string conversion
+- MD5 encode
 
 ---
 
