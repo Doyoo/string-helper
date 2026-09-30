@@ -34,7 +34,7 @@ import java.util.regex.Pattern
 class StringTransformer {
 
     enum class TransformMode {
-        Auto, JSON, XML, Unicode, Base64, URL, MD5, Multipart, QR
+        Auto, XML, Unicode, Base64, URL, MD5, Multipart, QR, JSON, JSONCompare, JSONMinify, SQLMinify, AutoMinify
     }
 
     data class TransformResult(
@@ -70,12 +70,16 @@ class StringTransformer {
                 }
 
                 TransformMode.JSON -> TransformOutput.Text(transformJson(input))
+                TransformMode.JSONCompare -> TransformOutput.Text(transformJsonCompare(input))
                 TransformMode.XML -> TransformOutput.Text(transformXml(input))
                 TransformMode.Unicode -> TransformOutput.Text(transformUnicode(input))
                 TransformMode.Base64 -> TransformOutput.Text(transformBase64(input))
                 TransformMode.URL -> TransformOutput.Text(transformUrl(input))
                 TransformMode.MD5 -> TransformOutput.Text(transformMd5(input))
                 TransformMode.Multipart -> TransformOutput.Text(transformMultipart(input))
+                TransformMode.JSONMinify -> TransformOutput.Text(transformJsonMinify(input))
+                TransformMode.SQLMinify -> TransformOutput.Text(transformSqlMinify(input))
+                TransformMode.AutoMinify -> TransformOutput.Text(autoMinify(input))
                 TransformMode.Auto -> TransformOutput.Text(autoTransform(input))
             }
         }
@@ -228,6 +232,123 @@ class StringTransformer {
             }
         }
 
+        fun transformJsonCompare(input: String): TransformResult {
+            val separator = Regex("""\r?\n[ \t]*\r?\n""")
+
+            val match = separator.find(input)
+                ?: return TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "Missing separator: Please separate the two JSON documents with a blank line."
+                        )
+                    )
+                )
+
+            val leftText = input.substring(0, match.range.first).trim()
+            val rightText = input.substring(match.range.last + 1).trim()
+
+            if (leftText.isEmpty() || rightText.isEmpty()) {
+                return TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "Both JSON inputs are required"
+                        )
+                    )
+                )
+            }
+
+            return try {
+                val left = JsonParser.parseString(leftText)
+                val right = JsonParser.parseString(rightText)
+
+                val differences = mutableListOf<String>()
+
+                fun compare(
+                    path: String,
+                    oldValue: JsonElement?,
+                    newValue: JsonElement?
+                ) {
+                    if (oldValue == null && newValue != null) {
+                        differences += "ADDED $path: $newValue"
+                        return
+                    }
+
+                    if (oldValue != null && newValue == null) {
+                        differences += "REMOVED $path: $oldValue"
+                        return
+                    }
+
+                    if (oldValue == null || newValue == null) return
+
+                    when {
+                        oldValue.isJsonObject && newValue.isJsonObject -> {
+                            val oldObject = oldValue.asJsonObject
+                            val newObject = newValue.asJsonObject
+
+                            val keys = (
+                                    oldObject.keySet() + newObject.keySet()
+                                    ).toSortedSet()
+
+                            for (key in keys) {
+                                compare(
+                                    "$path.$key",
+                                    oldObject.get(key),
+                                    newObject.get(key)
+                                )
+                            }
+                        }
+
+                        oldValue.isJsonArray && newValue.isJsonArray -> {
+                            val oldArray = oldValue.asJsonArray
+                            val newArray = newValue.asJsonArray
+
+                            for (i in 0 until maxOf(
+                                oldArray.size(),
+                                newArray.size()
+                            )) {
+                                compare(
+                                    "$path[$i]",
+                                    if (i < oldArray.size()) oldArray[i] else null,
+                                    if (i < newArray.size()) newArray[i] else null
+                                )
+                            }
+                        }
+
+                        oldValue != newValue -> {
+                            differences += "CHANGED $path: $oldValue -> $newValue"
+                        }
+                    }
+                }
+
+                compare("$", left, right)
+
+                TransformResult(
+                    if (differences.isEmpty()) {
+                        "JSONs are identical."
+                    } else {
+                        differences.joinToString("\n")
+                    }
+                )
+            } catch (e: Exception) {
+                TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "JSON Compare Error: ${e.message}"
+                        )
+                    )
+                )
+            }
+        }
+
         fun transformUrl(input: String): TransformResult {
             val trimmed = input.trim()
             return try {
@@ -271,6 +392,82 @@ class StringTransformer {
             }
         }
 
+        fun transformJsonMinify(input: String): TransformResult {
+            val text = input.trim()
+
+            if (text.isEmpty()) {
+                return TransformResult("")
+            }
+
+            return try {
+                val jsonElement = parseDeep(
+                    unescapeJsonIfNeeded(
+                        text
+                            .replace('“', '"')
+                            .replace('”', '"')
+                    )
+                )
+
+                val gson = GsonBuilder()
+                    .disableHtmlEscaping()
+                    .create()
+
+                TransformResult(gson.toJson(jsonElement))
+            } catch (e: Exception) {
+                TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "JSON Error: ${e.message}"
+                        )
+                    )
+                )
+            }
+        }
+
+        fun transformSqlMinify(input: String): TransformResult {
+            if (input.isBlank()) return TransformResult("")
+
+            return try {
+                TransformResult(minifySql(input))
+            } catch (e: Exception) {
+                TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "SQL Error: ${e.message}"
+                        )
+                    )
+                )
+            }
+        }
+
+        fun autoMinify(input: String): TransformResult {
+            val t = input.trim()
+
+            return when {
+                isJson(t) -> transformJsonMinify(t)
+
+                // 粗略 SQL 检测
+                isSql(t) -> transformSqlMinify(t)
+
+                else -> TransformResult(
+                    input,
+                    listOf(
+                        HighlightError(
+                            0,
+                            input.length,
+                            "Unsupported format for minify"
+                        )
+                    )
+                )
+            }
+        }
+
         fun applyHighlights(editor: Editor, errors: List<HighlightError>, baseOffset: Int = 0) {
             val markupModel = editor.markupModel
 
@@ -298,9 +495,11 @@ class StringTransformer {
 
         fun detect(text: String): Triple<String, FileType, String> {
             val t = text.trim()
+
             return when {
                 isJson(t) -> Triple(t, getFileType("json"), "JSON")
                 isXml(t) -> Triple(t, getFileType("xml"), "XML")
+                isSql(t) -> Triple(t, getFileType("sql"), "SQL")
                 else -> Triple(t, PlainTextFileType.INSTANCE, "TEXT")
             }
         }
@@ -368,6 +567,95 @@ class StringTransformer {
             }
         }
 
+        private fun minifySql(input: String): String {
+            val out = StringBuilder(input.length)
+            var i = 0
+            var needSpace = false
+
+            fun space() {
+                if (needSpace && out.isNotEmpty()) {
+                    val last = out.last()
+                    if (!last.isWhitespace() && last !in "(),;") {
+                        out.append(' ')
+                    }
+                }
+                needSpace = false
+            }
+
+            fun quoted(quote: Char) {
+                space()
+                out.append(quote)
+                i++
+
+                while (i < input.length) {
+                    val c = input[i++]
+                    out.append(c)
+
+                    if (c == quote) {
+                        if (i < input.length && input[i] == quote) {
+                            out.append(input[i++]) // '', "", ``
+                        } else {
+                            break
+                        }
+                    }
+                }
+            }
+
+            while (i < input.length) {
+                when {
+                    // 字符串 / quoted identifier
+                    input[i] == '\'' ||
+                            input[i] == '"' ||
+                            input[i] == '`' -> {
+                        quoted(input[i])
+                    }
+
+                    // -- line comment
+                    input[i] == '-' &&
+                            i + 1 < input.length &&
+                            input[i + 1] == '-' -> {
+                        i += 2
+                        while (i < input.length && input[i] != '\n') i++
+                        needSpace = true
+                    }
+
+                    // /* block comment */
+                    input[i] == '/' &&
+                            i + 1 < input.length &&
+                            input[i + 1] == '*' -> {
+                        i += 2
+                        while (
+                            i + 1 < input.length &&
+                            !(input[i] == '*' && input[i + 1] == '/')
+                        ) {
+                            i++
+                        }
+                        if (i + 1 < input.length) i += 2
+                        needSpace = true
+                    }
+
+                    // whitespace
+                    input[i].isWhitespace() -> {
+                        needSpace = true
+                        i++
+                    }
+
+                    // 不需要空格的标点
+                    input[i] in "(),;" -> {
+                        needSpace = false
+                        out.append(input[i++])
+                    }
+
+                    else -> {
+                        space()
+                        out.append(input[i++])
+                    }
+                }
+            }
+
+            return out.toString().trim()
+        }
+
         private fun looksLikeJson(text: String): Boolean {
             val t = text.trim()
             return ((t.startsWith("{") && t.endsWith("}"))
@@ -381,6 +669,14 @@ class StringTransformer {
                 .trim()
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\")
+        }
+
+        private fun isSql(text: String): Boolean {
+            val t = text.trimStart()
+
+            return Regex(
+                """(?is)^(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|CREATE\s+(TABLE|VIEW|INDEX)|ALTER\s+TABLE|DROP\s+(TABLE|VIEW|INDEX)|WITH)\b"""
+            ).containsMatchIn(t)
         }
 
         private fun isJson(text: String) =

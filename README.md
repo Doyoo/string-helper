@@ -26,12 +26,13 @@ URL encoding/decoding and multipart-boundary conversion right inside IntelliJ ID
 
 ### 🧠 Smart Auto Detection
 Automatically detects input type:
-- JSON (pretty print / compact / fix escape issues)
+- JSON (pretty print / compact / fix escape issues/ compare)
 - Base64 (encode / decode)
 - URL encoding / decoding
 - XML encoding / decoding
 - Unicode escape sequences
 - Multipart form-data parsing
+- JSON/SQL auto minify 
 
 ---
 
@@ -48,6 +49,7 @@ No need to select mode manually:
 - Fix malformed escape sequences
 - Error highlighting with line/column detection
 - Syntax highlighting inside editor
+- 
 
 ---
 
@@ -63,6 +65,7 @@ No need to select mode manually:
 - Base64 encode/decode
 - XML encode/decode
 - Multipart body → query string conversion
+- MD5 encode
 
 ---
 

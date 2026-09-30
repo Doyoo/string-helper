@@ -5,7 +5,7 @@
     <vendor email="doyoolooyu@gmail.com" url="https://github.com/Doyoo/string-helper">Aaron</vendor>
     <depends>com.intellij.modules.platform</depends>
     <description>
-    <![CDATA[
+        <![CDATA[
         <h3>String Helper</h3>
         A small utility plugin that provides quick string transformations like Unicode, Base64,
         URL encoding/decoding and multipart-boundary conversion right inside IntelliJ IDEA.
