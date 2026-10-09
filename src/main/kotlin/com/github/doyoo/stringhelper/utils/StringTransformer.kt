@@ -34,7 +34,7 @@ import java.util.regex.Pattern
 class StringTransformer {
 
     enum class TransformMode {
-        Auto, JSON, XML, Unicode, Base64, URL, MD5, Multipart, QR
+        Auto, JSON, JSONCompare, JSONMinify, SQLMinify, AutoMinify, XML, Unicode, Base64, URL, MD5, Multipart, QR
     }
 
     data class TransformResult(
